@@ -31,17 +31,18 @@ class SynchronizationExt:
         self.synchronization = Synchronization()
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_columns=2)
 
-
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
 
         # Update parameters based on name (more efficient than multiple if-else)
         param_handlers = {
-            "Slidingwindowmaxlength": lambda v: setattr(self, 'sliding_window_max_length', int(v)),
+            "Slidingwindowmaxlength": lambda v: (
+                setattr(self, 'sliding_window_max_length', int(v)),
+                setattr(self.sliding_window, 'max_length', int(v))
+            )
         }
 
         # Call the appropriate handler if it exists
         if param_name in param_handlers:
             param_handlers[param_name](param_value)
-

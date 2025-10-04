@@ -39,7 +39,10 @@ class SmoothnessExt:
 
         # Update parameters based on name (more efficient than multiple if-else)
         param_handlers = {
-            "Slidingwindowmaxlength": lambda v: setattr(self, 'smoothness_max_window', int(v)),
+            "Slidingwindowmaxlength": lambda v: (
+                setattr(self, 'smoothness_max_window', int(v)),
+                setattr(self.sliding_window, 'max_length', int(v))
+            ),
             "Computesparc": lambda v: setattr(self, 'compute_sparc', bool(v)),
             "Computejerk": lambda v: setattr(self, 'compute_jerk', bool(v))
         }

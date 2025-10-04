@@ -34,13 +34,18 @@ class EquilibriumExt:
         param_name = par.name
         param_value = par.eval()
 
-        # Update parameters based on name (more efficient than multiple if-else)
+        # Map parameter names to update functions
         param_handlers = {
-            "Margin": lambda v: setattr(self, 'Margin', float(v)),
-            "Yweight": lambda v: setattr(self, 'y_weight', float(v))
+            "Margin": lambda v: (
+                setattr(self, "margin", v),
+                setattr(self.equilibrium, "margin_mm", v),
+            ),
+            "Yweight": lambda v: (
+                setattr(self, "y_weight", v),
+                setattr(self.equilibrium, "y_weight", v),
+            ),
         }
 
         # Call the appropriate handler if it exists
         if param_name in param_handlers:
             param_handlers[param_name](param_value)
-

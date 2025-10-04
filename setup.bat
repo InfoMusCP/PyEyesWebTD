@@ -65,7 +65,7 @@ echo %YELLOW%[INFO] Upgrading pip, setuptools, wheel...%RESET%
 python -m pip install --upgrade pip setuptools wheel
 
 echo %YELLOW%[INFO] Installing pyeyesweb from "%LIB_SOURCE%"...%RESET%
-python -m pip install pyeyesweb
+python -m pip install -U pyeyesweb
 if errorlevel 1 (
     echo %RED%[ERROR] Library installation failed.%RESET%
     goto :end_script

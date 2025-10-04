@@ -33,7 +33,7 @@ PyEyesWebTD consists of multiple .tox components, each representing a specific m
 To use them in your TouchDesigner project, simply drag and drop the desired .tox files into your network.
 
 <div align="center">
-    <img src="assets/img.png" alt="Usage Example"/>
+    <img src="assets/img.png" alt="Usage Example" width="512"/>
     <p><i>Usage example of the `Synchronization` component to compute the synchronization between two sine waves.</i></p>
 </div>
 
@@ -44,7 +44,7 @@ To use them in your TouchDesigner project, simply drag and drop the desired .tox
 
 ## Authors & Acknowledgments
 
-PyEyesWebTD` is developed by [**InfoMus Lab – Casa Paganini**](http://www.casapaganini.org/index_eng.php), University of Genoa, with the partial support of the **[EU ICT STARTS Resilence Project](https://www.resilence.eu/)**.  
+PyEyesWebTD is developed by [**InfoMus Lab – Casa Paganini**](http://www.casapaganini.org/index_eng.php), University of Genoa, with the partial support of the **[EU ICT STARTS Resilence Project](https://www.resilence.eu/)**.  
 
 <div align="center">
 <img src="assets/cp-logo.png" alt="InfoMus Lab Logo" width="512" style="margin:15px"/>

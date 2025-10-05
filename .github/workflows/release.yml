@@ -1,17 +1,26 @@
-name: Create release
+name: Auto tag and release selected files
 
 on:
   push:
-    tags:
-      - 'v*'  # e.g. v1.0.0
+    branches: [main]
+
+permissions:
+  contents: write
 
 jobs:
-  release:
+  tag_and_release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Bump version and push tag
+        id: tag
+        uses: anothrNick/github-tag-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: patch
+          RELEASE_BRANCHES: main
 
       - name: Prepare release package
         run: |
@@ -25,8 +34,8 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.new_tag }}
+          release_name: Release ${{ steps.tag.outputs.new_tag }}
           draft: false
           prerelease: false
         env:
@@ -39,5 +48,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: release.zip
-          asset_name: PyEyesWeb_${{ github.ref_name }}.zip
+          asset_name: PyEyesWeb_${{ steps.tag.outputs.new_tag }}.zip
           asset_content_type: application/zip

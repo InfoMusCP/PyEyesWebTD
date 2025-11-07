@@ -11,7 +11,7 @@ Help: search "Extensions" in wiki
 from TDStoreTools import StorageManager
 import TDFunctions as TDF
 
-from pyeyesweb.sync import Synchronization
+from pyeyesweb.analysis_primitives.synchronization import Synchronization
 from pyeyesweb.data_models.sliding_window import SlidingWindow
 
 
@@ -26,7 +26,6 @@ class SynchronizationExt:
 
         self.params = op("parameter1")
         self.sliding_window_max_length = int(self.params["Slidingwindowmaxlength", 1].val)
-
 
         self.synchronization = Synchronization()
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_columns=2)

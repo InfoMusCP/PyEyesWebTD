@@ -17,13 +17,14 @@ parent_dir = os.path.dirname(project.folder)
 lib_dir = os.path.join(project.folder, "pyeyesweb_env", "Lib", "site-packages")
 
 if lib_dir not in sys.path:
-	sys.path.insert(0, os.path.normpath(lib_dir))
+    sys.path.insert(0, os.path.normpath(lib_dir))
 
-from pyeyesweb.low_level.smoothness import Smoothness
+
+from pyeyesweb.analysis_primitives.clusterability import Clusterability
 from pyeyesweb.data_models.sliding_window import SlidingWindow
 
 
-class SmoothnessExt:
+class ClusterabilityExt:
     """
     InfoMusExt description
     """
@@ -33,12 +34,10 @@ class SmoothnessExt:
         self.ownerComp = ownerComp
 
         self.params = op("parameter1")
-
         self.sliding_window_max_length = int(self.params["Slidingwindowmaxlength", 1].val)
-        self.compute_jerk = bool(self.params["Computejerk", 1].val)
-        self.compute_sparc = bool(self.params["Computesparc", 1].val)
+        self.n_neighbors = int(self.params["Nneighbors", 1].val)
 
-        self.smoothness = Smoothness()
+        self.clusterability = Clusterability(n_neighbors=self.n_neighbors)
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_columns=1)
 
     def par_exec_onValueChange(self, par):
@@ -48,14 +47,15 @@ class SmoothnessExt:
         # Update parameters based on name (more efficient than multiple if-else)
         param_handlers = {
             "Slidingwindowmaxlength": lambda v: (
-                setattr(self, 'smoothness_max_window', int(v)),
+                setattr(self, 'sliding_window_max_length', int(v)),
                 setattr(self.sliding_window, 'max_length', int(v))
             ),
-            "Computesparc": lambda v: setattr(self, 'compute_sparc', bool(v)),
-            "Computejerk": lambda v: setattr(self, 'compute_jerk', bool(v))
+            "Nneighbors": lambda v: (
+                setattr(self, 'n_neighbors', int(v)),
+                setattr(self.clusterability, 'n_neighbors', int(v))
+            )
         }
 
         # Call the appropriate handler if it exists
         if param_name in param_handlers:
             param_handlers[param_name](param_value)
-

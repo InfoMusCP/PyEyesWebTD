@@ -26,7 +26,7 @@ jobs:
         run: |
           mkdir -p release
           cp -r extensions release/
-          cp Equilibrium.tox Synchronization.tox Smoothness.tox setup.sh setup.bat Examples.toe release/
+          cp Clusterability.tox Equilibrium.tox Lightness.tox Rarity.tox Smoothness.tox Synchronization.tox setup.sh setup.bat Examples.toe release/
           cd release
           zip -r ../release.zip .
 

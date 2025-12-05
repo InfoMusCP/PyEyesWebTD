@@ -7,9 +7,17 @@ can be accessed externally, e.g. op('yourComp').PromotedFunction().
 
 Help: search "Extensions" in wiki
 """
+import os
+import sys
 
 from TDStoreTools import StorageManager
 import TDFunctions as TDF
+
+parent_dir = os.path.dirname(project.folder)
+lib_dir = os.path.join(project.folder, "pyeyesweb_env", "Lib", "site-packages")
+
+if lib_dir not in sys.path:
+	sys.path.insert(0, os.path.normpath(lib_dir))
 
 from pyeyesweb.low_level.equilibrium import Equilibrium
 

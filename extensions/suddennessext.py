@@ -13,13 +13,13 @@ lib_dir = os.path.join(project.folder, "pyeyesweb_env", "Lib", "site-packages")
 if lib_dir not in sys.path:
     sys.path.insert(0, os.path.normpath(lib_dir))
 
-from pyeyesweb.mid_level import Lightness
+from pyeyesweb.mid_level import Suddenness
 from pyeyesweb.data_models import SlidingWindow
 
 
-class LightnessExt:
+class SuddennessExt:
     """
-    Lightness PyEyesWeb Extension
+    Suddenness PyEyesWeb Extension
     """
 
     def __init__(self, ownerComp):
@@ -45,18 +45,22 @@ class LightnessExt:
         self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
 
         # Get metrics based on toggles
-        self.compute_lightness = _safe_eval('Computelightness', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_index = _safe_eval('Computeindex', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        self.compute_is_sudden = _safe_eval('Computeissudden', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        self.compute_alpha = _safe_eval('Computealpha', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        self.compute_beta = _safe_eval('Computebeta', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        self.compute_gamma = _safe_eval('Computegamma', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
 
         # Map initialization parameters
-        alpha = _safe_eval('Alpha', 0.5, float)
+        algos = ["new", "old"]
+        algo_idx = _safe_eval('Algo', 0, int)
+        algo = algos[max(0, min(algo_idx, len(algos)-1))]
 
-        self.feature = Lightness(alpha=alpha)
-        # Needs velocity data
+        self.feature = Suddenness(algo=algo)
+        # Assuming typical 3D incoming movement tracking (tx,ty,tz)
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=3)
 
     def _build_parameters(self):
-        page_name = "Lightness"
+        page_name = "Suddenness"
         
         for page in self.ownerComp.customPages:
             if page.name == page_name:
@@ -65,11 +69,19 @@ class LightnessExt:
         page = self.ownerComp.appendCustomPage(page_name)
         
         # --- Output Selection ---
-        p = page.appendToggle("Computelightness", label="Output Lightness")[0]
+        p = page.appendToggle("Computeissudden", label="Output Is Sudden")[0]
         p.default = True
         p.val = True
         
-        p = page.appendToggle("Computeindex", label="Output Weight Index")[0]
+        p = page.appendToggle("Computealpha", label="Output Alpha Value")[0]
+        p.default = False
+        p.val = False
+
+        p = page.appendToggle("Computebeta", label="Output Beta Value")[0]
+        p.default = False
+        p.val = False
+
+        p = page.appendToggle("Computegamma", label="Output Gamma Value")[0]
         p.default = False
         p.val = False
         
@@ -81,11 +93,11 @@ class LightnessExt:
         p.normMax = 300
         
         # --- Algorithm Tuning ---
-        p = page.appendFloat("Alpha", label="Rarity Alpha Weight")[0]
-        p.default = 0.5
-        p.val = 0.5
-        p.min = 0.01
-        p.normMax = 1.0
+        p = page.appendMenu("Algo", label="Stable Distribution Algorithm")[0]
+        p.menuNames = ["new", "old"]
+        p.menuLabels = ["New Method (Constrained)", "Old Method"]
+        p.default = 0
+        p.val = 0
         
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
@@ -98,9 +110,11 @@ class LightnessExt:
                 setattr(self, 'sliding_window_max_length', int(float(v))),
                 setattr(self.sliding_window, 'max_length', int(float(v)))
             ),
-            "Computelightness": lambda v: setattr(self, 'compute_lightness', bool(v)),
-            "Computeindex": lambda v: setattr(self, 'compute_index', bool(v)),
-            "Alpha": lambda v: setattr(self.feature, 'alpha', float(v))
+            "Computeissudden": lambda v: setattr(self, 'compute_is_sudden', bool(v)),
+            "Computealpha": lambda v: setattr(self, 'compute_alpha', bool(v)),
+            "Computebeta": lambda v: setattr(self, 'compute_beta', bool(v)),
+            "Computegamma": lambda v: setattr(self, 'compute_gamma', bool(v)),
+            "Algo": lambda v: setattr(self.feature, 'algo', ["new", "old"][int(float(v))])
         }
 
         if param_name in param_handlers:
@@ -114,7 +128,7 @@ class LightnessExt:
             for chan in i_chop.chans():
                 signals.append(chan[0])
 
-        if len(signals) < 3: # 3D Velocity usually expected
+        if len(signals) == 0:
             return
             
         dims = 3 if len(signals) % 3 == 0 else (2 if len(signals) % 2 == 0 else 1)
@@ -127,14 +141,24 @@ class LightnessExt:
 
         results = self.feature(self.sliding_window)
         
-        if getattr(self, 'compute_lightness', False):
-            val = results.lightness if hasattr(results, 'lightness') else None
-            chan = scriptOp.appendChan('lightness')
-            chan[0] = val if val is not None else 0.0
+        if getattr(self, 'compute_is_sudden', False):
+            val = results.is_sudden if hasattr(results, 'is_sudden') else False
+            chan = scriptOp.appendChan('is_sudden')
+            chan[0] = 1.0 if val else 0.0
             
-        if getattr(self, 'compute_index', False):
-            val = results.latest_weight_index if hasattr(results, 'latest_weight_index') else None
-            chan = scriptOp.appendChan('weight_index')
+        if getattr(self, 'compute_alpha', False):
+            val = results.alpha if hasattr(results, 'alpha') else None
+            chan = scriptOp.appendChan('alpha')
+            chan[0] = val if val is not None else 0.0
+
+        if getattr(self, 'compute_beta', False):
+            val = results.beta if hasattr(results, 'beta') else None
+            chan = scriptOp.appendChan('beta')
+            chan[0] = val if val is not None else 0.0
+
+        if getattr(self, 'compute_gamma', False):
+            val = results.gamma if hasattr(results, 'gamma') else None
+            chan = scriptOp.appendChan('gamma')
             chan[0] = val if val is not None else 0.0
 
         return

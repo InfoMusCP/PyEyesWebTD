@@ -1,13 +1,6 @@
 """
-Extension classes enhance TouchDesigner components with python. An
-extension is accessed via ext.ExtensionClassName from any operator
-within the extended component. If the extension is promoted via its
-Promote Extension parameter, all its attributes with capitalized names
-can be accessed externally, e.g. op('yourComp').PromotedFunction().
-
-Help: search "Extensions" in wiki
+Extension classes enhance TouchDesigner components with python.
 """
-
 import os
 import sys
 
@@ -20,38 +13,159 @@ lib_dir = os.path.join(project.folder, "pyeyesweb_env", "Lib", "site-packages")
 if lib_dir not in sys.path:
     sys.path.insert(0, os.path.normpath(lib_dir))
 
-
-from pyeyesweb.analysis_primitives.synchronization import Synchronization
-from pyeyesweb.data_models.sliding_window import SlidingWindow
+from pyeyesweb.analysis_primitives import Synchronization
+from pyeyesweb.data_models import SlidingWindow
 
 
 class SynchronizationExt:
     """
-    InfoMusExt description
+    Synchronization PyEyesWeb Extension
     """
 
     def __init__(self, ownerComp):
-        # The component to which this extension is attached
         self.ownerComp = ownerComp
 
-        self.params = op("parameter1")
-        self.sliding_window_max_length = int(self.params["Slidingwindowmaxlength", 1].val)
+        def _safe_eval(par_name, default_val, expected_type):
+            par = getattr(self.ownerComp.par, par_name, None)
+            if par is not None:
+                val = par.eval()
+                if val == '' or val is None:
+                    par.val = default_val
+                    return default_val
+                try:
+                    result = expected_type(val)
+                    if result == 0 and default_val != 0:
+                        par.val = default_val
+                        return default_val
+                    return result
+                except (ValueError, TypeError):
+                    pass
+            return default_val
 
-        self.synchronization = Synchronization()
-        self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_columns=2)
+        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
+        
+        # Synchronization handles filter parameter objects natively inside its setter 
+        # but to keep TD UI flat, we expose low and high cutoffs for a butterworth if needed, 
+        # or keep it simple with none.
+        self.apply_filter = _safe_eval('Applyfilter', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        
+        # Filter details
+        self.lowcut = _safe_eval('Lowcut', 0.5, float)
+        self.highcut = _safe_eval('Highcut', 5.0, float)
+        self.fs = _safe_eval('Fs', 60.0, float)
+
+        filter_params = None
+        if self.apply_filter:
+            filter_params = {'lowcut': self.lowcut, 'highcut': self.highcut, 'fs': self.fs}
+
+        self.feature = Synchronization(filter_params=filter_params)
+        self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=2)  # Plv needs 2 inputs
+
+    def _update_filter(self):
+        if getattr(self, 'apply_filter', False):
+            self.feature.filter_params = {
+                'lowcut': getattr(self, 'lowcut', 0.5), 
+                'highcut': getattr(self, 'highcut', 5.0), 
+                'fs': getattr(self, 'fs', 60.0)
+            }
+        else:
+            self.feature.filter_params = None
+
+    def _build_parameters(self):
+        page_name = "Synchronization"
+        
+        for page in self.ownerComp.customPages:
+            if page.name == page_name:
+                page.destroy()
+                
+        page = self.ownerComp.appendCustomPage(page_name)
+        
+        # --- Sensor/Stream Config ---
+        p = page.appendInt("Slidingwindowmaxlength", label="Window Size (samples)")[0]
+        p.default = 60
+        p.val = 60
+        p.min = 10
+        p.normMax = 300
+        
+        # --- Algorithm Tuning ---
+        p = page.appendToggle("Applyfilter", label="Apply Bandpass Filter")[0]
+        p.default = False
+        p.val = False
+        
+        p = page.appendFloat("Lowcut", label="Lowcut Freq (Hz)")[0]
+        p.default = 0.5
+        p.val = 0.5
+        p.min = 0.1
+        p.normMax = 10.0
+        
+        p = page.appendFloat("Highcut", label="Highcut Freq (Hz)")[0]
+        p.default = 5.0
+        p.val = 5.0
+        p.min = 1.0
+        p.normMax = 30.0
+        
+        p = page.appendFloat("Fs", label="Sampling Rate (Hz)")[0]
+        p.default = 60.0
+        p.val = 60.0
+        p.min = 1.0
+        p.normMax = 120.0
+        
+        print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
 
-        # Update parameters based on name (more efficient than multiple if-else)
+        def set_apply_filter(v):
+            self.apply_filter = bool(v)
+            self._update_filter()
+            
+        def set_lowcut(v):
+            self.lowcut = float(v)
+            self._update_filter()
+            
+        def set_highcut(v):
+            self.highcut = float(v)
+            self._update_filter()
+            
+        def set_fs(v):
+            self.fs = float(v)
+            self._update_filter()
+
         param_handlers = {
             "Slidingwindowmaxlength": lambda v: (
-                setattr(self, 'sliding_window_max_length', int(v)),
-                setattr(self.sliding_window, 'max_length', int(v))
-            )
+                setattr(self, 'sliding_window_max_length', int(float(v))),
+                setattr(self.sliding_window, 'max_length', int(float(v)))
+            ),
+            "Applyfilter": set_apply_filter,
+            "Lowcut": set_lowcut,
+            "Highcut": set_highcut,
+            "Fs": set_fs
         }
 
-        # Call the appropriate handler if it exists
         if param_name in param_handlers:
             param_handlers[param_name](param_value)
+
+    def ProcessCook(self, scriptOp):
+        scriptOp.clear()
+        
+        # Gathering multiple inputs since Phase Synch needs minimum 2.
+        signals = []
+        for i_chop in scriptOp.inputs:
+            for chan in i_chop.chans():
+                signals.append(chan[0])
+
+        if not signals:
+            return
+            
+        if len(signals) != self.sliding_window.n_signals:
+            self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=len(signals))
+
+        self.sliding_window.append(signals)
+
+        results = self.feature(self.sliding_window)
+        
+        chan = scriptOp.appendChan('plv')
+        val = results.plv if hasattr(results, 'plv') else None
+        chan[0] = val if val is not None else 0.0
+        return

@@ -1,14 +1,9 @@
 """
-Extension classes enhance TouchDesigner components with python. An
-extension is accessed via ext.ExtensionClassName from any operator
-within the extended component. If the extension is promoted via its
-Promote Extension parameter, all its attributes with capitalized names
-can be accessed externally, e.g. op('yourComp').PromotedFunction().
-
-Help: search "Extensions" in wiki
+Extension classes enhance TouchDesigner components with python.
 """
 import os
 import sys
+import numpy as np
 
 from TDStoreTools import StorageManager
 import TDFunctions as TDF
@@ -17,32 +12,124 @@ parent_dir = os.path.dirname(project.folder)
 lib_dir = os.path.join(project.folder, "pyeyesweb_env", "Lib", "site-packages")
 
 if lib_dir not in sys.path:
-	sys.path.insert(0, os.path.normpath(lib_dir))
+    sys.path.insert(0, os.path.normpath(lib_dir))
 
-from pyeyesweb.low_level.contraction_expansion import ContractionExpansion
+from pyeyesweb.low_level.contraction_expansion import BoundingBoxFilledArea, EllipsoidSphericity, PointsDensity
 
 
 class ContractionExpansionExt:
     """
-    InfoMusExt description
+    ContractionExpansion PyEyesWeb Extension
+    Coordinates multiple static spatial features natively.
     """
 
     def __init__(self, ownerComp):
-        # The component to which this extension is attached
         self.ownerComp = ownerComp
 
-        self.params = op("parameter1")
+        def _safe_eval(par_name, default_val, expected_type):
+            par = getattr(self.ownerComp.par, par_name, None)
+            if par is not None:
+                val = par.eval()
+                if val == '' or val is None:
+                    par.val = default_val
+                    return default_val
+                try:
+                    result = expected_type(val)
+                    if result == 0 and default_val != 0:
+                        par.val = default_val
+                        return default_val
+                    return result
+                except (ValueError, TypeError):
+                    pass
+            return default_val
 
-        self.contraction = ContractionExpansion()
+        # Get metrics based on toggles
+        self.compute_filled_area = _safe_eval('Computefilledarea', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        self.compute_sphericity = _safe_eval('Computesphericity', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        self.compute_density = _safe_eval('Computedensity', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+
+        # Unlike dynamic features, these are static spatial calculations applied per-frame
+        self.feature_area = BoundingBoxFilledArea()
+        self.feature_sphericity = EllipsoidSphericity()
+        self.feature_density = PointsDensity()
+
+    def _build_parameters(self):
+        page_name = "ContractionExpansion"
+        
+        for page in self.ownerComp.customPages:
+            if page.name == page_name:
+                page.destroy()
+                
+        page = self.ownerComp.appendCustomPage(page_name)
+        
+        # --- Output Selection ---
+        p = page.appendToggle("Computefilledarea", label="Compute BBox Area")[0]
+        p.default = True
+        p.val = True
+        
+        p = page.appendToggle("Computesphericity", label="Compute Sphericity")[0]
+        p.default = True
+        p.val = True
+
+        p = page.appendToggle("Computedensity", label="Compute Point Density")[0]
+        p.default = True
+        p.val = True
+        
+        # Because these expect spatial points (e.g. 3D Body Joints) internally, 
+        # there is no SlidingWindowmaxlength parameter. Computation is per-frame.
+        
+        print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
 
-        # Update parameters based on name (more efficient than multiple if-else)
-        param_handlers = {}
+        # Update toggles internally
+        param_handlers = {
+            "Computefilledarea": lambda v: setattr(self, 'compute_filled_area', bool(v)),
+            "Computesphericity": lambda v: setattr(self, 'compute_sphericity', bool(v)),
+            "Computedensity": lambda v: setattr(self, 'compute_density', bool(v))
+        }
 
-        # Call the appropriate handler if it exists
         if param_name in param_handlers:
             param_handlers[param_name](param_value)
 
+    def ProcessCook(self, scriptOp):
+        scriptOp.clear()
+        
+        # These features operate on a point cloud natively (n_joints, 3) 
+        # so we expect 3 incoming CHOP channels (tx, ty, tz) representing spatial data.
+        if len(scriptOp.inputs) == 0:
+            return
+            
+        input_chop = scriptOp.inputs[0]
+        if input_chop.numChans < 3:
+            return
+            
+        # Reconstruct spatial structure
+        tx = input_chop.chan('tx') or input_chop.chans()[0]
+        ty = input_chop.chan('ty') or input_chop.chans()[1]
+        tz = input_chop.chan('tz') or input_chop.chans()[2]
+        
+        # Shape: (n_joints, 3) representing the current frame
+        frame_data = np.column_stack([tx.vals, ty.vals, tz.vals])
+
+        if getattr(self, 'compute_filled_area', False):
+            res_area = self.feature_area.compute(frame_data)
+            chan = scriptOp.appendChan('contraction_index')
+            val = res_area.contraction_index if hasattr(res_area, 'contraction_index') else None
+            chan[0] = val if val is not None else 0.0
+            
+        if getattr(self, 'compute_sphericity', False):
+            res_sph = self.feature_sphericity.compute(frame_data)
+            chan = scriptOp.appendChan('sphericity')
+            val = res_sph.sphericity if hasattr(res_sph, 'sphericity') else None
+            chan[0] = val if val is not None else 0.0
+            
+        if getattr(self, 'compute_density', False):
+            res_den = self.feature_density.compute(frame_data)
+            chan = scriptOp.appendChan('points_density')
+            val = res_den.points_density if hasattr(res_den, 'points_density') else None
+            chan[0] = val if val is not None else 0.0
+
+        return

@@ -1,0 +1,441 @@
+[
+    {
+        "name": "Clusterability",
+        "inputs": [
+            {
+                "name": "Features",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Nneighbors",
+                "label": "N Neighbors",
+                "type": "Int",
+                "default": 0
+            }
+        ],
+        "extension_file": "dist_extensions/clusterabilityext.py"
+    },
+    {
+        "name": "MultiScaleEntropyDominance",
+        "inputs": [
+            {
+                "name": "Signals",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 500
+            },
+            {
+                "name": "M",
+                "label": "M",
+                "type": "Float",
+                "default": 2
+            },
+            {
+                "name": "R",
+                "label": "R",
+                "type": "Float",
+                "default": 0.15
+            },
+            {
+                "name": "Maxscale",
+                "label": "Max Scale",
+                "type": "Float",
+                "default": 6
+            },
+            {
+                "name": "Minpoints",
+                "label": "Min Points",
+                "type": "Float",
+                "default": 500
+            },
+            {
+                "name": "Methods",
+                "label": "Methods",
+                "type": "Str",
+                "default": [
+                    "complexity_index"
+                ]
+            }
+        ],
+        "extension_file": "dist_extensions/multiscaleentropydominanceext.py"
+    },
+    {
+        "name": "Rarity",
+        "inputs": [
+            {
+                "name": "Speed",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Alpha",
+                "label": "Alpha",
+                "type": "Float",
+                "default": 0.5
+            }
+        ],
+        "extension_file": "dist_extensions/rarityext.py"
+    },
+    {
+        "name": "StatisticalMoment",
+        "inputs": [
+            {
+                "name": "Features",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Metrics",
+                "label": "Metrics",
+                "type": "Str",
+                "default": null
+            }
+        ],
+        "extension_file": "dist_extensions/statisticalmomentext.py"
+    },
+    {
+        "name": "Synchronization",
+        "inputs": [
+            {
+                "name": "Signals",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Filterparams",
+                "label": "Filter Params",
+                "type": "Float",
+                "default": null
+            }
+        ],
+        "extension_file": "dist_extensions/synchronizationext.py"
+    },
+    {
+        "name": "Smoothness",
+        "inputs": [
+            {
+                "name": "Speed",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Ratehz",
+                "label": "Rate Hz",
+                "type": "Float",
+                "default": 50.0
+            },
+            {
+                "name": "Usefilter",
+                "label": "Use Filter",
+                "type": "Toggle",
+                "default": true
+            },
+            {
+                "name": "Metrics",
+                "label": "Metrics",
+                "type": "Str",
+                "default": null
+            }
+        ],
+        "extension_file": "dist_extensions/smoothnessext.py"
+    },
+    {
+        "name": "Equilibrium",
+        "inputs": [
+            {
+                "name": "Left Foot",
+                "type": "CHOP"
+            },
+            {
+                "name": "Right Foot",
+                "type": "CHOP"
+            },
+            {
+                "name": "Barycenter",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Leftfootidx",
+                "label": "Left Foot Idx",
+                "type": "Int",
+                "default": 0
+            },
+            {
+                "name": "Rightfootidx",
+                "label": "Right Foot Idx",
+                "type": "Int",
+                "default": 1
+            },
+            {
+                "name": "Barycenteridx",
+                "label": "Barycenter Idx",
+                "type": "Int",
+                "default": 2
+            },
+            {
+                "name": "Marginmm",
+                "label": "Margin Mm",
+                "type": "Float",
+                "default": 100.0
+            },
+            {
+                "name": "Yweight",
+                "label": "Y Weight",
+                "type": "Float",
+                "default": 0.5
+            }
+        ],
+        "extension_file": "dist_extensions/equilibriumext.py"
+    },
+    {
+        "name": "BoundingBoxFilledArea",
+        "inputs": [
+            {
+                "name": "Joints",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [],
+        "extension_file": "dist_extensions/boundingboxfilledareaext.py"
+    },
+    {
+        "name": "EllipsoidSphericity",
+        "inputs": [
+            {
+                "name": "Joints",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [],
+        "extension_file": "dist_extensions/ellipsoidsphericityext.py"
+    },
+    {
+        "name": "PointsDensity",
+        "inputs": [
+            {
+                "name": "Joints",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [],
+        "extension_file": "dist_extensions/pointsdensityext.py"
+    },
+    {
+        "name": "DirectionChange",
+        "inputs": [
+            {
+                "name": "Trajectory",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Epsilon",
+                "label": "Epsilon",
+                "type": "Float",
+                "default": 0.5
+            },
+            {
+                "name": "Numsubsamples",
+                "label": "Num Subsamples",
+                "type": "Int",
+                "default": 20
+            },
+            {
+                "name": "Saturationarea",
+                "label": "Saturation Area",
+                "type": "Float",
+                "default": 0.3
+            },
+            {
+                "name": "Saturationslope",
+                "label": "Saturation Slope",
+                "type": "Float",
+                "default": 0.09
+            },
+            {
+                "name": "Metrics",
+                "label": "Metrics",
+                "type": "Str",
+                "default": null
+            }
+        ],
+        "extension_file": "dist_extensions/directionchangeext.py"
+    },
+    {
+        "name": "GeometricSymmetry",
+        "inputs": [
+            {
+                "name": "Joints",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Jointpairs",
+                "label": "Joint Pairs",
+                "type": "Int",
+                "default": 0
+            },
+            {
+                "name": "Centerofsymmetry",
+                "label": "Center Of Symmetry",
+                "type": "Int",
+                "default": null
+            }
+        ],
+        "extension_file": "dist_extensions/geometricsymmetryext.py"
+    },
+    {
+        "name": "KineticEnergy",
+        "inputs": [
+            {
+                "name": "Velocities",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Weights",
+                "label": "Weights",
+                "type": "Float",
+                "default": 1.0
+            },
+            {
+                "name": "Labels",
+                "label": "Labels",
+                "type": "Str",
+                "default": null
+            }
+        ],
+        "extension_file": "dist_extensions/kineticenergyext.py"
+    },
+    {
+        "name": "Impulsivity",
+        "inputs": [
+            {
+                "name": "Trajectory",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Directionchangeepsilon",
+                "label": "Direction Change Epsilon",
+                "type": "Float",
+                "default": 0.5
+            },
+            {
+                "name": "Suddennessalgo",
+                "label": "Suddenness Algo",
+                "type": "Str",
+                "default": "new"
+            }
+        ],
+        "extension_file": "dist_extensions/impulsivityext.py"
+    },
+    {
+        "name": "Lightness",
+        "inputs": [
+            {
+                "name": "Velocities",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Alpha",
+                "label": "Alpha",
+                "type": "Float",
+                "default": 0.5
+            }
+        ],
+        "extension_file": "dist_extensions/lightnessext.py"
+    },
+    {
+        "name": "Suddenness",
+        "inputs": [
+            {
+                "name": "Trajectory",
+                "type": "CHOP"
+            }
+        ],
+        "parameters": [
+            {
+                "name": "Slidingwindowlength",
+                "label": "Window Length",
+                "type": "Int",
+                "default": 100
+            },
+            {
+                "name": "Algo",
+                "label": "Algo",
+                "type": "Str",
+                "default": "new"
+            }
+        ],
+        "extension_file": "dist_extensions/suddennessext.py"
+    }
+]

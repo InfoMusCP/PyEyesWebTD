@@ -43,18 +43,24 @@ class GeometricSymmetryExt:
             return default_val
 
         # Map initialization parameters
-        # TD UI doesn't natively do lists of tuples well without DATs, so we expose up to 4 pairs 
-        # as a pragmatic UI choice for a basic character skeleton
-        
+        # We read from the sequence parameter 'Jointpairs'
         self.pairs_enabled = []
-        for i in range(1, 5):
-            en = _safe_eval(f'Enablepair{i}', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-            l_idx = _safe_eval(f'Leftidx{i}', 0, int)
-            r_idx = _safe_eval(f'Rightidx{i}', 1, int)
-            if en:
-                self.pairs_enabled.append((l_idx, r_idx))
-                
-        # Fallback to a single pair [0, 1] if none are enabled to satisfy validation
+        
+        # Safely try to access the sequence
+        seq_par = getattr(self.ownerComp.seq, 'Jointpairs', None)
+        if seq_par is not None:
+            for block in seq_par.blocks:
+                left_par = getattr(block.par, 'Leftidx', None)
+                right_par = getattr(block.par, 'Rightidx', None)
+                if left_par is not None and right_par is not None:
+                    try:
+                        l_idx = int(float(left_par.eval()))
+                        r_idx = int(float(right_par.eval()))
+                        self.pairs_enabled.append((l_idx, r_idx))
+                    except (ValueError, TypeError):
+                        continue
+        
+        # Fallback to a single pair [0, 1] if none are configured
         if not self.pairs_enabled:
             self.pairs_enabled = [(0, 1)]
 
@@ -70,13 +76,17 @@ class GeometricSymmetryExt:
 
     def _update_feature(self):
         pairs = []
-        for i in range(1, 5):
-            par_en = getattr(self.ownerComp.par, f'Enablepair{i}')
-            par_l = getattr(self.ownerComp.par, f'Leftidx{i}')
-            par_r = getattr(self.ownerComp.par, f'Rightidx{i}')
-            
-            if par_en is not None and par_en.eval():
-                pairs.append((int(par_l.eval()), int(par_r.eval())))
+        seq_par = getattr(self.ownerComp.seq, 'Jointpairs', None)
+        
+        if seq_par is not None:
+            for block in seq_par.blocks:
+                left_par = getattr(block.par, 'Leftidx', None)
+                right_par = getattr(block.par, 'Rightidx', None)
+                if left_par is not None and right_par is not None:
+                    try:
+                        pairs.append((int(float(left_par.eval())), int(float(right_par.eval()))))
+                    except (ValueError, TypeError):
+                        continue
                 
         if not pairs:
             pairs = [(0, 1)]
@@ -106,23 +116,26 @@ class GeometricSymmetryExt:
         p.min = 0
         p.normMax = 32
         
-        # Build 4 pairs
-        for i in range(1, 5):
-            p_en = page.appendToggle(f"Enablepair{i}", label=f"Enable Pair {i}")[0]
-            p_en.default = (i == 1)
-            p_en.val = (i == 1)
-            
-            p_l = page.appendInt(f"Leftidx{i}", label=f"Left Index {i}")[0]
-            p_l.default = 0
-            p_l.val = 0
-            p_l.min = 0
-            p_l.normMax = 32
-            
-            p_r = page.appendInt(f"Rightidx{i}", label=f"Right Index {i}")[0]
-            p_r.default = 1
-            p_r.val = 1
-            p_r.min = 0
-            p_r.normMax = 32
+        # Build the Sequence parameter
+        seq = page.appendSequence('Jointpairs', label='Joint Pairs')
+        
+        # We need to create the parameter template for the sequence blocks
+        # TouchDesigner handles sequence params slightly differently
+        p_l = page.appendInt('Leftidx', label='Left Index')[0]
+        p_l.default = 0
+        p_l.min = 0
+        p_l.normMax = 32
+        
+        p_r = page.appendInt('Rightidx', label='Right Index')[0]
+        p_r.default = 1
+        p_r.min = 0
+        p_r.normMax = 32
+        
+        # Explicitly tell TouchDesigner that the last 2 parameters belong to this Sequence Block
+        self.ownerComp.seq.Jointpairs.blockSize = 2
+        
+        # Initialize with at least 1 pair block for UI convenience
+        self.ownerComp.par.Jointpairs = 1
 
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
@@ -139,13 +152,13 @@ class GeometricSymmetryExt:
             self._update_feature()
 
         # Check if the changed parameter relates to our pairs definition
-        if "pair" in param_name.lower() or "idx" in param_name.lower():
-            if param_name == "Usecenter":
-                set_use_center(param_value)
-            elif param_name == "Centeridx":
-                set_center(param_value)
-            else:
-                self._update_feature()
+        # Sequence parameters generate names like Leftidx0, Leftidx1, Jointpairs, etc.
+        if "jointpairs" in param_name.lower() or "leftidx" in param_name.lower() or "rightidx" in param_name.lower():
+            self._update_feature()
+        elif param_name == "Usecenter":
+            set_use_center(param_value)
+        elif param_name == "Centeridx":
+            set_center(param_value)
 
     def ProcessCook(self, scriptOp):
         scriptOp.clear()
@@ -165,11 +178,8 @@ class GeometricSymmetryExt:
         # Shape: (n_joints, 3) representing the current frame
         frame_data = np.column_stack([tx.vals, ty.vals, tz.vals])
 
-        try:
-            results = self.feature.compute(frame_data)
-        except Exception:
-            return
-        
+        results = self.feature.compute(frame_data)
+        print(results)
         if getattr(results, 'is_valid', False):
             flat_results = results.to_flat_dict()
             for metric_name, value in flat_results.items():

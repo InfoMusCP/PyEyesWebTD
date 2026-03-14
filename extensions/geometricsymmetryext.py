@@ -163,7 +163,8 @@ class GeometricSymmetryExt:
     def ProcessCook(self, scriptOp):
         scriptOp.clear()
         
-        # Expects physical coordinates (N_joints x 3)
+        # Expects physical coordinates (N_joints x 3) grouped linearly
+        # e.g., tx_0, ty_0, tz_0, tx_1, ty_1, tz_1...
         if len(scriptOp.inputs) == 0:
             return
             
@@ -171,19 +172,30 @@ class GeometricSymmetryExt:
         if input_chop.numChans < 3:
             return
             
-        tx = input_chop.chan('tx') or input_chop.chans()[0]
-        ty = input_chop.chan('ty') or input_chop.chans()[1]
-        tz = input_chop.chan('tz') or input_chop.chans()[2]
+        # Get the full array (shape: channels, samples)
+        full_data = input_chop.numpyArray()
         
+        # We only compute symmetry on the current instantaneous frame (sample index 0)
+        if full_data.shape[1] == 0:
+            return
+            
+        # Extract the first sample column -> Shape: (numChans,)
+        # Example for 9 channels: [xL, yL, zL, xR, yR, zR, xC, yC, zC]
+        data_1d = full_data[:, 0]
+        
+        dims = 3
+        # Ensure we have clean coordinate triplets
+        num_joints = len(data_1d) // dims
+        if num_joints == 0:
+            return
+            
         # Shape: (n_joints, 3) representing the current frame
-        frame_data = np.column_stack([tx.vals, ty.vals, tz.vals])
+        frame_data = data_1d[:num_joints*dims].reshape(num_joints, dims)
 
         results = self.feature.compute(frame_data)
-        print(results)
         if getattr(results, 'is_valid', False):
             flat_results = results.to_flat_dict()
             for metric_name, value in flat_results.items():
-                if value == value: # check nan
-                    chan = scriptOp.appendChan(metric_name)
-                    chan[0] = value
+                chan = scriptOp.appendChan(metric_name)
+                chan[0] = value
         return

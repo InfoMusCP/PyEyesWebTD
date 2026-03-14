@@ -56,18 +56,14 @@ class SynchronizationExt:
 
         filter_params = None
         if self.apply_filter:
-            filter_params = {'lowcut': self.lowcut, 'highcut': self.highcut, 'fs': self.fs}
+            filter_params = (self.lowcut, self.highcut, self.fs)
 
         self.feature = Synchronization(filter_params=filter_params)
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=2)  # Plv needs 2 inputs
 
     def _update_filter(self):
         if getattr(self, 'apply_filter', False):
-            self.feature.filter_params = {
-                'lowcut': getattr(self, 'lowcut', 0.5), 
-                'highcut': getattr(self, 'highcut', 5.0), 
-                'fs': getattr(self, 'fs', 60.0)
-            }
+            self.feature.filter_params = (self.lowcut, self.highcut, self.fs)
         else:
             self.feature.filter_params = None
 
@@ -90,7 +86,7 @@ class SynchronizationExt:
         # --- Algorithm Tuning ---
         p = page.appendToggle("Applyfilter", label="Apply Bandpass Filter")[0]
         p.default = False
-        p.val = False
+        p.val = True
         
         p = page.appendFloat("Lowcut", label="Lowcut Freq (Hz)")[0]
         p.default = 0.5
@@ -162,6 +158,9 @@ class SynchronizationExt:
             self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=len(signals))
 
         self.sliding_window.append(signals)
+
+        if not self.sliding_window.is_full:
+            return
 
         results = self.feature(self.sliding_window)
         

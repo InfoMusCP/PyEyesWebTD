@@ -43,22 +43,16 @@ class EquilibriumExt:
             return default_val
 
         # Map initialization parameters
-        left_foot_idx = _safe_eval('Leftfootidx', 0, int)
-        right_foot_idx = _safe_eval('Rightfootidx', 1, int)
-        barycenter_idx = _safe_eval('Barycenteridx', 2, int)
         margin_mm = _safe_eval('Marginmm', 100.0, float)
         y_weight = _safe_eval('Yweight', 0.5, float)
 
         self.feature = Equilibrium(
-            left_foot_idx=left_foot_idx,
-            right_foot_idx=right_foot_idx,
-            barycenter_idx=barycenter_idx,
+            left_foot_idx=0,
+            right_foot_idx=1,
+            barycenter_idx=2,
             margin_mm=margin_mm,
             y_weight=y_weight
         )
-        
-        # Equilibrium is a StaticFeature (per-frame point cloud analysis).
-        # No SlidingWindow is instantiated.
 
     def _build_parameters(self):
         page_name = "Equilibrium"
@@ -70,23 +64,6 @@ class EquilibriumExt:
         page = self.ownerComp.appendCustomPage(page_name)
         
         # --- Algorithm Tuning ---
-        p = page.appendInt("Leftfootidx", label="Left Foot Joint Index")[0]
-        p.default = 0
-        p.val = 0
-        p.min = 0
-        p.normMax = 32
-        
-        p = page.appendInt("Rightfootidx", label="Right Foot Joint Index")[0]
-        p.default = 1
-        p.val = 1
-        p.min = 0
-        p.normMax = 32
-        
-        p = page.appendInt("Barycenteridx", label="Barycenter Joint Index")[0]
-        p.default = 2
-        p.val = 2
-        p.min = 0
-        p.normMax = 32
         
         p = page.appendFloat("Marginmm", label="Margin (mm)")[0]
         p.default = 100.0
@@ -107,9 +84,6 @@ class EquilibriumExt:
         param_value = par.eval()
 
         param_handlers = {
-            "Leftfootidx": lambda v: setattr(self.feature, 'left_foot_idx', int(float(v))),
-            "Rightfootidx": lambda v: setattr(self.feature, 'right_foot_idx', int(float(v))),
-            "Barycenteridx": lambda v: setattr(self.feature, 'barycenter_idx', int(float(v))),
             "Marginmm": lambda v: setattr(self.feature, 'margin', float(v)),
             "Yweight": lambda v: setattr(self.feature, 'y_weight', float(v))
         }
@@ -120,21 +94,27 @@ class EquilibriumExt:
     def ProcessCook(self, scriptOp):
         scriptOp.clear()
         
-        # This feature operates on a point cloud natively (n_joints, 2) minimum 
-        # so we expect 2 or 3 incoming CHOP channels (tx, ty, tz) representing spatial data for the current frame.
-        if len(scriptOp.inputs) == 0:
+        # This feature operates on 3 points natively (left foot, right foot, barycenter)
+        # We expect exactly 3 incoming CHOPs, each with 2+ channels representing spatial data for the current frame.
+        if len(scriptOp.inputs) != 3:
             return
             
-        input_chop = scriptOp.inputs[0]
-        if input_chop.numChans < 2:
-            return
+        points = []
+        for input_chop in scriptOp.inputs:
+            if input_chop.numChans < 2:
+                return
             
-        # Reconstruct spatial structure
-        tx = input_chop.chan('tx') or input_chop.chans()[0]
-        ty = input_chop.chan('ty') or input_chop.chans()[1]
-        
-        # Shape: (n_joints, 2+) representing the current frame
-        frame_data = np.column_stack([tx.vals, ty.vals])
+            # Using numpyArray() for fast extraction of the first sample column
+            arr = input_chop.numpyArray()
+            if arr.shape[1] == 0:
+                return
+                
+            # Extract first sample of the first 2 dimensions (x, y)
+            pt = arr[:2, 0]
+            points.append(pt)
+            
+        # Shape: (3, 2)
+        frame_data = np.array(points)
 
         results = self.feature.compute(frame_data)
         

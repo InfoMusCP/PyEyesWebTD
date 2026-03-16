@@ -82,8 +82,8 @@ class ClusterabilityExt:
         
         # --- Algorithm Tuning ---
         p = page.appendInt("Nneighbors", label="Number of Neighbors (k)")[0]
-        p.default = 5
-        p.val = 5
+        p.default = 3
+        p.val = 3
         p.min = 1
         p.normMax = 15
         

@@ -97,22 +97,34 @@ class ContractionExpansionExt:
     def ProcessCook(self, scriptOp):
         scriptOp.clear()
         
-        # These features operate on a point cloud natively (n_joints, 3) 
-        # so we expect 3 incoming CHOP channels (tx, ty, tz) representing spatial data.
         if len(scriptOp.inputs) == 0:
             return
             
         input_chop = scriptOp.inputs[0]
-        if input_chop.numChans < 3:
+        n_chans = input_chop.numChans
+        if n_chans < 2:
             return
-            
-        # Reconstruct spatial structure
-        tx = input_chop.chan('tx') or input_chop.chans()[0]
-        ty = input_chop.chan('ty') or input_chop.chans()[1]
-        tz = input_chop.chan('tz') or input_chop.chans()[2]
-        
-        # Shape: (n_joints, 3) representing the current frame
-        frame_data = np.column_stack([tx.vals, ty.vals, tz.vals])
+
+        # Determine dimensionality: channels grouped by 3 (3D) or 2 (2D)
+        if n_chans % 3 == 0:
+            dims = 3
+        elif n_chans % 2 == 0:
+            dims = 2
+        else:
+            return
+
+        # Fast extraction via numpyArray: shape (n_chans, n_samples)
+        arr = input_chop.numpyArray()
+        if arr.shape[1] == 0:
+            return
+
+        # Take first sample, reshape to (n_joints, dims)
+        flat = arr[:, 0]
+        frame_data = flat.reshape(-1, dims)
+
+        # Library features expect 3D — pad 2D with zeros
+        if dims == 2:
+            frame_data = np.column_stack([frame_data, np.zeros(frame_data.shape[0])])
 
         if getattr(self, 'compute_filled_area', False):
             res_area = self.feature_area.compute(frame_data)

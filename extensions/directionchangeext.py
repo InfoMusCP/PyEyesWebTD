@@ -60,14 +60,10 @@ class DirectionChangeExt:
         # Map initialization parameters
         epsilon = _safe_eval('Epsilon', 0.5, float)
         num_subsamples = _safe_eval('Numsubsamples', 20, int)
-        saturation_area = _safe_eval('Saturationarea', 0.3, float)
-        saturation_slope = _safe_eval('Saturationslope', 0.09, float)
 
         self.feature = DirectionChange(
             epsilon=epsilon,
             num_subsamples=num_subsamples,
-            saturation_area=saturation_area,
-            saturation_slope=saturation_slope,
             metrics=initial_metrics
         )
         # We need trajectory coordinate points over time, typically requires 3 signals (x, y, z)
@@ -121,18 +117,6 @@ class DirectionChangeExt:
         p.min = 3
         p.normMax = 50
         
-        p = page.appendFloat("Saturationarea", label="Saturation Area")[0]
-        p.default = 0.3
-        p.val = 0.3
-        p.min = 0.01
-        p.normMax = 1.0
-        
-        p = page.appendFloat("Saturationslope", label="Saturation Slope")[0]
-        p.default = 0.09
-        p.val = 0.09
-        p.min = 0.01
-        p.normMax = 0.5
-        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
@@ -156,8 +140,6 @@ class DirectionChangeExt:
             "Computepolygon": set_polygon,
             "Epsilon": lambda v: setattr(self.feature, 'epsilon', float(v)),
             "Numsubsamples": lambda v: setattr(self.feature, 'num_subsamples', int(float(v))),
-            "Saturationarea": lambda v: setattr(self.feature, 'saturation_area', float(v)),
-            "Saturationslope": lambda v: setattr(self.feature, 'saturation_slope', float(v))
         }
 
         if param_name in param_handlers:

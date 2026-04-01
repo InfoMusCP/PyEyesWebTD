@@ -194,8 +194,18 @@ class GeometricSymmetryExt:
 
         results = self.feature.compute(frame_data)
         if getattr(results, 'is_valid', False):
+            # Only set numSamples if we are not in Time Slice mode
+            if not scriptOp.isTimeSlice:
+                scriptOp.numSamples = 1
+            
             flat_results = results.to_flat_dict()
             for metric_name, value in flat_results.items():
+                    
                 chan = scriptOp.appendChan(metric_name)
-                chan[0] = value
+                
+                # If time-sliced, set the same value for the whole slice
+                # If not, set the first (and only) sample
+                val_float = float(value)
+                for i in range(scriptOp.numSamples):
+                    chan[i] = val_float
         return

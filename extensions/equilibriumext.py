@@ -142,18 +142,24 @@ class EquilibriumExt:
         # Determine validness
         is_valid = getattr(results, 'is_valid', True)
         
+        if not is_valid:
+            # Clear if not valid
+            return
+
+        if not scriptOp.isTimeSlice:
+            scriptOp.numSamples = 1
+
         val_chan = scriptOp.appendChan('equilibrium_value')
         ang_chan = scriptOp.appendChan('equilibrium_angle')
         
-        if not is_valid:
-            val_chan[0] = 0.0
-            ang_chan[0] = 0.0
-            return
-
-        val = results.value if hasattr(results, 'value') else None
-        val_chan[0] = val if val is not None else 0.0
+        val = results.value if hasattr(results, 'value') else 0.0
+        ang = results.angle if hasattr(results, 'angle') else 0.0
         
-        ang = results.angle if hasattr(results, 'angle') else None
-        ang_chan[0] = ang if ang is not None else 0.0
+        val_float = float(val) if val is not None else 0.0
+        ang_float = float(ang) if ang is not None else 0.0
+        
+        for i in range(scriptOp.numSamples):
+            val_chan[i] = val_float
+            ang_chan[i] = ang_float
 
         return

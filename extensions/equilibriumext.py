@@ -45,13 +45,16 @@ class EquilibriumExt:
         # Map initialization parameters
         margin_mm = _safe_eval('Marginmm', 100.0, float)
         y_weight = _safe_eval('Yweight', 0.5, float)
+        axis1 = _safe_eval('Axis1', 0, int)
+        axis2 = _safe_eval('Axis2', 1, int)
 
         self.feature = Equilibrium(
             left_foot_idx=0,
             right_foot_idx=1,
             barycenter_idx=2,
             margin_mm=margin_mm,
-            y_weight=y_weight
+            y_weight=y_weight,
+            axes=(axis1, axis2)
         )
 
     def _build_parameters(self):
@@ -76,6 +79,18 @@ class EquilibriumExt:
         p.val = 0.5
         p.min = 0.01
         p.normMax = 2.0
+
+        p = page.appendInt("Axis1", label="First Axis (0=X, 1=Y, 2=Z)")[0]
+        p.default = 0
+        p.val = 0
+        p.min = 0
+        p.normMax = 2
+
+        p = page.appendInt("Axis2", label="Second Axis (0=X, 1=Y, 2=Z)")[0]
+        p.default = 1
+        p.val = 1
+        p.min = 0
+        p.normMax = 2
         
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
@@ -85,7 +100,9 @@ class EquilibriumExt:
 
         param_handlers = {
             "Marginmm": lambda v: setattr(self.feature, 'margin', float(v)),
-            "Yweight": lambda v: setattr(self.feature, 'y_weight', float(v))
+            "Yweight": lambda v: setattr(self.feature, 'y_weight', float(v)),
+            "Axis1": lambda v: setattr(self.feature, 'axes', (int(v), self.feature.axes[1])),
+            "Axis2": lambda v: setattr(self.feature, 'axes', (self.feature.axes[0], int(v)))
         }
 
         if param_name in param_handlers:
@@ -95,34 +112,47 @@ class EquilibriumExt:
         scriptOp.clear()
         
         # This feature operates on 3 points natively (left foot, right foot, barycenter)
-        # We expect exactly 3 incoming CHOPs, each with 2+ channels representing spatial data for the current frame.
         if len(scriptOp.inputs) != 3:
             return
             
         points = []
         for input_chop in scriptOp.inputs:
-            if input_chop.numChans < 2:
-                return
-            
-            # Using numpyArray() for fast extraction of the first sample column
             arr = input_chop.numpyArray()
             if arr.shape[1] == 0:
                 return
                 
-            # Extract first sample of the first 2 dimensions (x, y)
-            pt = arr[:2, 0]
+            # Extract first sample of all available dimensions
+            pt = arr[:, 0]
             points.append(pt)
             
-        # Shape: (3, 2)
-        frame_data = np.array(points)
+        # Ensure points have exactly the same number of dimensions by trimming to the min dimension
+        min_dim = min(len(p) for p in points) if points else 0
+        if min_dim < 2:
+            return
+            
+        frame_data = np.array([p[:min_dim] for p in points])
+
+        # Ensure we have enough dimensions for the selected axes
+        max_axis = max(self.feature.axes)
+        if frame_data.shape[1] <= max_axis:
+            return
 
         results = self.feature.compute(frame_data)
         
+        # Determine validness
+        is_valid = getattr(results, 'is_valid', True)
+        
         val_chan = scriptOp.appendChan('equilibrium_value')
+        ang_chan = scriptOp.appendChan('equilibrium_angle')
+        
+        if not is_valid:
+            val_chan[0] = 0.0
+            ang_chan[0] = 0.0
+            return
+
         val = results.value if hasattr(results, 'value') else None
         val_chan[0] = val if val is not None else 0.0
         
-        ang_chan = scriptOp.appendChan('equilibrium_angle')
         ang = results.angle if hasattr(results, 'angle') else None
         ang_chan[0] = ang if ang is not None else 0.0
 

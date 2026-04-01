@@ -25,27 +25,27 @@ class KineticEnergyExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        par_weights = getattr(self.ownerComp.par, 'Weights', None)
+        if par_weights is not None:
+            weights_val = self._parse_weights_str(par_weights.eval())
+        else:
+            weights_val = 1.0
+            
+        self.feature = KineticEnergy(weights=weights_val)
 
-        # Weights are usually scalars or arrays, we'll keep it simple as a scalar uniform mass
-        # since TD Custom Parameters don't handle lists nicely without a Text DAT.
-        uniform_weight = _safe_eval('Uniformweight', 1.0, float)
-        self.feature = KineticEnergy(weights=uniform_weight)
+    @staticmethod
+    def _parse_weights_str(val):
+        if not isinstance(val, str):
+            val = str(val)
+        try:
+            parts = [float(x.strip()) for x in val.split(',') if x.strip()]
+            if len(parts) == 1:
+                return parts[0]
+            elif len(parts) > 1:
+                return parts
+        except ValueError:
+            pass
+        return 1.0
 
     def _build_parameters(self):
         page_name = "KineticEnergy"
@@ -57,11 +57,9 @@ class KineticEnergyExt:
         page = self.ownerComp.appendCustomPage(page_name)
         
         # --- Algorithm Tuning ---
-        p = page.appendFloat("Uniformweight", label="Uniform Mass/Weight")[0]
-        p.default = 1.0
-        p.val = 1.0
-        p.min = 0.01
-        p.normMax = 100.0
+        p = page.appendStr("Weights", label="Mass/Weights (Comma separated)")[0]
+        p.default = "1.0"
+        p.val = "1.0"
         
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
@@ -70,7 +68,7 @@ class KineticEnergyExt:
         param_value = par.eval()
 
         param_handlers = {
-            "Uniformweight": lambda v: setattr(self.feature, 'weights', float(v))
+            "Weights": lambda v: setattr(self.feature, 'weights', self._parse_weights_str(v))
         }
 
         if param_name in param_handlers:
@@ -99,6 +97,11 @@ class KineticEnergyExt:
         if num_joints == 0:
             return
 
+        # Check weight list length against incoming joints to provide user feedback
+        if isinstance(self.feature.weights, np.ndarray) and self.feature.weights.shape[0] != num_joints:
+            scriptOp.addWarning(f"Weight list length ({self.feature.weights.shape[0]}) does not match number of incoming joints ({num_joints}).")
+            return
+
         frame_data = np.zeros((num_joints, dims))
         for j in range(num_joints):
             for d in range(dims):
@@ -109,7 +112,8 @@ class KineticEnergyExt:
 
         try:
             results = self.feature.compute(frame_data)
-        except ValueError:
+        except ValueError as e:
+            scriptOp.addWarning(str(e))
             return
             
         if getattr(results, 'is_valid', False):

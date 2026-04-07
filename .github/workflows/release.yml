@@ -14,13 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Bump version and push tag
-        id: tag
-        uses: anothrNick/github-tag-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEFAULT_BUMP: patch
-          RELEASE_BRANCHES: main
+      - name: Checkout main PyEyesWeb repository
+        uses: actions/checkout@v4
+        with:
+          repository: InfoMusCP/PyEyesWeb
+          path: pyeyesweb-repo
+
+      - name: Extract version from pyproject.toml
+        id: get_version
+        run: |
+          VERSION=$(grep -m 1 '^version =' pyeyesweb-repo/pyproject.toml | tr -d ' ' | cut -d '=' -f 2 | tr -d '"')
+          echo "VERSION=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Prepare release package
         run: |
@@ -29,14 +33,14 @@ jobs:
           cp *.tox release/
           cp setup.sh setup.bat Examples.toe release/
           cd release
-          zip -r ../PyEyesWeb_${{ steps.tag.outputs.new_tag }}.zip .
+          zip -r ../PyEyesWeb_${{ steps.get_version.outputs.VERSION }}.zip .
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.new_tag }}
-          name: Release ${{ steps.tag.outputs.new_tag }}
-          files: PyEyesWeb_${{ steps.tag.outputs.new_tag }}.zip
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          files: PyEyesWeb_${{ steps.get_version.outputs.VERSION }}.zip
           draft: false
           prerelease: false
         env:

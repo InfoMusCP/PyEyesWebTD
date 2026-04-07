@@ -33,7 +33,7 @@ jobs:
           cp *.tox release/
           cp setup.sh setup.bat Examples.toe release/
           cd release
-          zip -r ../PyEyesWeb_${{ steps.get_version.outputs.VERSION }}.zip .
+          zip -r ../PyEyesWebTD_${{ steps.get_version.outputs.VERSION }}.zip .
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

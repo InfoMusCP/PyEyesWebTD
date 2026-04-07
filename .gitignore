@@ -2,4 +2,5 @@
 Backup
 pyeyesweb_env
 PyEyesWeb
-PyEyesWebTD.toe
+PyEyesWebTD.*.toe
+Examples.*.toe

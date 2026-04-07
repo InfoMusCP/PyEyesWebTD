@@ -25,28 +25,19 @@ jobs:
       - name: Prepare release package
         run: |
           mkdir -p release
-          cp -r extensions release/
-          cp Clusterability.tox Equilibrium.tox Lightness.tox Rarity.tox Smoothness.tox Synchronization.tox setup.sh setup.bat Examples.toe release/
+          cp -r extensions data release/
+          cp *.tox release/
+          cp setup.sh setup.bat Examples.toe release/
           cd release
-          zip -r ../release.zip .
+          zip -r ../PyEyesWeb_${{ steps.tag.outputs.new_tag }}.zip .
 
       - name: Create GitHub release
-        id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.new_tag }}
-          release_name: Release ${{ steps.tag.outputs.new_tag }}
+          name: Release ${{ steps.tag.outputs.new_tag }}
+          files: PyEyesWeb_${{ steps.tag.outputs.new_tag }}.zip
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload release package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release.zip
-          asset_name: PyEyesWeb_${{ steps.tag.outputs.new_tag }}.zip
-          asset_content_type: application/zip

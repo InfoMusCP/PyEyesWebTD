@@ -4,7 +4,7 @@
 
 ![GitHub release](https://img.shields.io/github/v/release/username/repo?include_prereleases)
 [![Docs](https://img.shields.io/badge/docs-online-brightgreen)](https://infomuscp.github.io/PyEyesWeb/)
-![TouchDesigner](https://img.shields.io/badge/TouchDesigner-2023.12230-purple)
+![TouchDesigner](https://img.shields.io/badge/TouchDesigner-2025.32280-purple)
 
 PyEyesWebTD is the TouchDesigner integration of the [PyEyesWeb library](https://github.com/InfoMusCP/PyEyesWeb).  
 It brings PyEyesWeb’s expressive movement analysis features into TouchDesigner as modular .tox components,

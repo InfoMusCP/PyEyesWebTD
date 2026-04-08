@@ -25,25 +25,18 @@ class RarityExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Slidingwindowmaxlength', 'default': 60, 'target': ownerComp.par.Slidingwindowmaxlength if hasattr(ownerComp.par, 'Slidingwindowmaxlength') else None},
+            {'name': 'Alpha', 'default': 0.5, 'target': ownerComp.par.Alpha if hasattr(ownerComp.par, 'Alpha') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
-        alpha = _safe_eval('Alpha', 0.5, float)
+        # Map internal flags to stored values
+        self.sliding_window_max_length = int(self.stored['Slidingwindowmaxlength'])
+        alpha = float(self.stored['Alpha'])
 
         self.feature = Rarity(alpha=alpha)
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=1)
@@ -71,11 +64,19 @@ class RarityExt:
         p.min = 0.0
         p.normMax = 1.0
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         param_handlers = {
             "Slidingwindowmaxlength": lambda v: (

@@ -25,28 +25,22 @@ class EquilibriumExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Marginmm', 'default': 100.0, 'target': ownerComp.par.Marginmm if hasattr(ownerComp.par, 'Marginmm') else None},
+            {'name': 'Yweight', 'default': 0.5, 'target': ownerComp.par.Yweight if hasattr(ownerComp.par, 'Yweight') else None},
+            {'name': 'Axis1', 'default': 0, 'target': ownerComp.par.Axis1 if hasattr(ownerComp.par, 'Axis1') else None},
+            {'name': 'Axis2', 'default': 1, 'target': ownerComp.par.Axis2 if hasattr(ownerComp.par, 'Axis2') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        # Map initialization parameters
-        margin_mm = _safe_eval('Marginmm', 100.0, float)
-        y_weight = _safe_eval('Yweight', 0.5, float)
-        axis1 = _safe_eval('Axis1', 0, int)
-        axis2 = _safe_eval('Axis2', 1, int)
+        # Map initialization parameters from storage
+        margin_mm = float(self.stored['Marginmm'])
+        y_weight = float(self.stored['Yweight'])
+        axis1 = int(self.stored['Axis1'])
+        axis2 = int(self.stored['Axis2'])
 
         self.feature = Equilibrium(
             left_foot_idx=0,
@@ -92,11 +86,19 @@ class EquilibriumExt:
         p.min = 0
         p.normMax = 2
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         param_handlers = {
             "Marginmm": lambda v: setattr(self.feature, 'margin', float(v)),

@@ -32,31 +32,18 @@ class ClusterabilityExt:
         # The component to which this extension is attached
         self.ownerComp = ownerComp
 
-        # Helper to safely evaluate parameter values during component init
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                # Empty string from DAT or invalid eval mapping
-                if val == '' or val is None:
-                    par.val = default_val  # Sync UI parameter visually
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    # TD often defaults uninitialized params to 0, which breaks models
-                    if result == 0 and default_val != 0:
-                        par.val = default_val  # Sync UI parameter visually
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Nneighbors', 'default': 5, 'target': ownerComp.par.Nneighbors if hasattr(ownerComp.par, 'Nneighbors') else None},
+            {'name': 'Slidingwindowmaxlength', 'default': 60, 'target': ownerComp.par.Slidingwindowmaxlength if hasattr(ownerComp.par, 'Slidingwindowmaxlength') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        # Sliding window
-        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
-
-        # Map initialization parameters
-        n_neighbors = _safe_eval('Nneighbors', 5, int)
+        # Map internal flags to stored values
+        self.sliding_window_max_length = int(self.stored['Slidingwindowmaxlength'])
+        n_neighbors = int(self.stored['Nneighbors'])
 
         self.feature = Clusterability(n_neighbors=n_neighbors)
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=1)
@@ -87,11 +74,19 @@ class ClusterabilityExt:
         p.min = 1
         p.normMax = 15
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         # Update parameters based on name
         param_handlers = {

@@ -25,28 +25,24 @@ class DirectionChangeExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Computecosine', 'default': True, 'target': ownerComp.par.Computecosine if hasattr(ownerComp.par, 'Computecosine') else None},
+            {'name': 'Computepolygon', 'default': True, 'target': ownerComp.par.Computepolygon if hasattr(ownerComp.par, 'Computepolygon') else None},
+            {'name': 'Slidingwindowmaxlength', 'default': 60, 'target': ownerComp.par.Slidingwindowmaxlength if hasattr(ownerComp.par, 'Slidingwindowmaxlength') else None},
+            {'name': 'Epsilon', 'default': 0.5, 'target': ownerComp.par.Epsilon if hasattr(ownerComp.par, 'Epsilon') else None},
+            {'name': 'Numsubsamples', 'default': 20, 'target': ownerComp.par.Numsubsamples if hasattr(ownerComp.par, 'Numsubsamples') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
-
-        # Get metrics based on toggles
-        self.compute_cosine = _safe_eval('Computecosine', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_polygon = _safe_eval('Computepolygon', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        # Map internal flags to stored values
+        self.sliding_window_max_length = int(self.stored['Slidingwindowmaxlength'])
+        self.compute_cosine = bool(self.stored['Computecosine'])
+        self.compute_polygon = bool(self.stored['Computepolygon'])
+        epsilon = float(self.stored['Epsilon'])
+        num_subsamples = int(self.stored['Numsubsamples'])
 
         initial_metrics = []
         if self.compute_cosine:
@@ -57,10 +53,6 @@ class DirectionChangeExt:
         if not initial_metrics:
             initial_metrics = ["cosine"]
 
-        # Map initialization parameters
-        epsilon = _safe_eval('Epsilon', 0.5, float)
-        num_subsamples = _safe_eval('Numsubsamples', 20, int)
-
         self.feature = DirectionChange(
             epsilon=epsilon,
             num_subsamples=num_subsamples,
@@ -70,6 +62,7 @@ class DirectionChangeExt:
         # but the module technically handles any dimensionality D>=2 
         # We will dynamically resize if needed in ProcessCook. Start with 3.
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=3)
+        self._update_metrics()
 
     def _update_metrics(self):
         metrics = []
@@ -117,11 +110,19 @@ class DirectionChangeExt:
         p.min = 3
         p.normMax = 50
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         def set_cosine(v):
             self.compute_cosine = bool(v)

@@ -26,27 +26,20 @@ class ContractionExpansionExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Computefilledarea', 'default': True, 'target': ownerComp.par.Computefilledarea if hasattr(ownerComp.par, 'Computefilledarea') else None},
+            {'name': 'Computesphericity', 'default': True, 'target': ownerComp.par.Computesphericity if hasattr(ownerComp.par, 'Computesphericity') else None},
+            {'name': 'Computedensity', 'default': True, 'target': ownerComp.par.Computedensity if hasattr(ownerComp.par, 'Computedensity') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        # Get metrics based on toggles
-        self.compute_filled_area = _safe_eval('Computefilledarea', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_sphericity = _safe_eval('Computesphericity', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_density = _safe_eval('Computedensity', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        # Map internal flags to stored values
+        self.compute_filled_area = self.stored['Computefilledarea']
+        self.compute_sphericity = self.stored['Computesphericity']
+        self.compute_density = self.stored['Computedensity']
 
         # Unlike dynamic features, these are static spatial calculations applied per-frame
         self.feature_area = BoundingBoxFilledArea()
@@ -78,13 +71,23 @@ class ContractionExpansionExt:
         # Because these expect spatial points (e.g. 3D Body Joints) internally, 
         # there is no SlidingWindowmaxlength parameter. Computation is per-frame.
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
 
-        # Update toggles internally
+        # Update storage (this will also update the parameter if it was a target, 
+        # though here the parameter change triggered this, so it's a loop-safe sync)
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
+
+        # Update toggles internally for fast access in ProcessCook
         param_handlers = {
             "Computefilledarea": lambda v: setattr(self, 'compute_filled_area', bool(v)),
             "Computesphericity": lambda v: setattr(self, 'compute_sphericity', bool(v)),

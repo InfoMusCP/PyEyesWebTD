@@ -25,34 +25,29 @@ class SuddennessExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Computeissudden', 'default': True, 'target': ownerComp.par.Computeissudden if hasattr(ownerComp.par, 'Computeissudden') else None},
+            {'name': 'Computealpha', 'default': False, 'target': ownerComp.par.Computealpha if hasattr(ownerComp.par, 'Computealpha') else None},
+            {'name': 'Computebeta', 'default': False, 'target': ownerComp.par.Computebeta if hasattr(ownerComp.par, 'Computebeta') else None},
+            {'name': 'Computegamma', 'default': False, 'target': ownerComp.par.Computegamma if hasattr(ownerComp.par, 'Computegamma') else None},
+            {'name': 'Slidingwindowmaxlength', 'default': 60, 'target': ownerComp.par.Slidingwindowmaxlength if hasattr(ownerComp.par, 'Slidingwindowmaxlength') else None},
+            {'name': 'Algo', 'default': 0, 'target': ownerComp.par.Algo if hasattr(ownerComp.par, 'Algo') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
-
-        # Get metrics based on toggles
-        self.compute_is_sudden = _safe_eval('Computeissudden', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_alpha = _safe_eval('Computealpha', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_beta = _safe_eval('Computebeta', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_gamma = _safe_eval('Computegamma', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        # Map internal flags to stored values
+        self.sliding_window_max_length = int(self.stored['Slidingwindowmaxlength'])
+        self.compute_is_sudden = bool(self.stored['Computeissudden'])
+        self.compute_alpha = bool(self.stored['Computealpha'])
+        self.compute_beta = bool(self.stored['Computebeta'])
+        self.compute_gamma = bool(self.stored['Computegamma'])
 
         # Map initialization parameters
         algos = ["new", "old"]
-        algo_idx = _safe_eval('Algo', 0, int)
+        algo_idx = int(self.stored['Algo'])
         algo = algos[max(0, min(algo_idx, len(algos)-1))]
 
         self.feature = Suddenness(algo=algo)
@@ -99,11 +94,19 @@ class SuddennessExt:
         p.default = 0
         p.val = 0
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         param_handlers = {
             "Slidingwindowmaxlength": lambda v: (

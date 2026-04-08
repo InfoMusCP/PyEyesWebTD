@@ -25,30 +25,24 @@ class StatisticalMomentExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Computemean', 'default': True, 'target': ownerComp.par.Computemean if hasattr(ownerComp.par, 'Computemean') else None},
+            {'name': 'Computestddev', 'default': True, 'target': ownerComp.par.Computestddev if hasattr(ownerComp.par, 'Computestddev') else None},
+            {'name': 'Computeskewness', 'default': False, 'target': ownerComp.par.Computeskewness if hasattr(ownerComp.par, 'Computeskewness') else None},
+            {'name': 'Computekurtosis', 'default': False, 'target': ownerComp.par.Computekurtosis if hasattr(ownerComp.par, 'Computekurtosis') else None},
+            {'name': 'Slidingwindowmaxlength', 'default': 60, 'target': ownerComp.par.Slidingwindowmaxlength if hasattr(ownerComp.par, 'Slidingwindowmaxlength') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
-
-        # Get metrics based on toggles
-        self.compute_mean = _safe_eval('Computemean', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_std_dev = _safe_eval('Computestddev', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_skewness = _safe_eval('Computeskewness', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_kurtosis = _safe_eval('Computekurtosis', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        # Map internal flags to stored values
+        self.sliding_window_max_length = int(self.stored['Slidingwindowmaxlength'])
+        self.compute_mean = bool(self.stored['Computemean'])
+        self.compute_std_dev = bool(self.stored['Computestddev'])
+        self.compute_skewness = bool(self.stored['Computeskewness'])
+        self.compute_kurtosis = bool(self.stored['Computekurtosis'])
 
         initial_metrics = []
         if self.compute_mean:
@@ -111,11 +105,19 @@ class StatisticalMomentExt:
         p.min = 10
         p.normMax = 300
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         def set_mean(v):
             self.compute_mean = bool(v)

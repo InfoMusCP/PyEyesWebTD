@@ -32,32 +32,25 @@ class SmoothnessExt:
         # The component to which this extension is attached
         self.ownerComp = ownerComp
 
-        # Helper to safely evaluate parameter values during component init
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                # Empty string from DAT or invalid eval mapping
-                if val == '' or val is None:
-                    par.val = default_val  # Sync UI parameter visually
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    # TD often defaults uninitialized params to 0, which breaks models
-                    if result == 0 and default_val != 0:
-                        par.val = default_val  # Sync UI parameter visually
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Computesparc', 'default': True, 'target': ownerComp.par.Computesparc if hasattr(ownerComp.par, 'Computesparc') else None},
+            {'name': 'Computejerk', 'default': True, 'target': ownerComp.par.Computejerk if hasattr(ownerComp.par, 'Computejerk') else None},
+            {'name': 'Slidingwindowmaxlength', 'default': 60, 'target': ownerComp.par.Slidingwindowmaxlength if hasattr(ownerComp.par, 'Slidingwindowmaxlength') else None},
+            {'name': 'Ratehz', 'default': 60.0, 'target': ownerComp.par.Ratehz if hasattr(ownerComp.par, 'Ratehz') else None},
+            {'name': 'Usefilter', 'default': True, 'target': ownerComp.par.Usefilter if hasattr(ownerComp.par, 'Usefilter') else None},
+            {'name': 'Sparcamplitudethreshold', 'default': 0.05, 'target': ownerComp.par.Sparcamplitudethreshold if hasattr(ownerComp.par, 'Sparcamplitudethreshold') else None},
+            {'name': 'Sparcminfc', 'default': 2.0, 'target': ownerComp.par.Sparcminfc if hasattr(ownerComp.par, 'Sparcminfc') else None},
+            {'name': 'Sparcmaxfc', 'default': 20.0, 'target': ownerComp.par.Sparcmaxfc if hasattr(ownerComp.par, 'Sparcmaxfc') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        # Sliding window
-        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
-
-        # Get metrics based on toggles
-        self.compute_sparc = _safe_eval('Computesparc', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_jerk = _safe_eval('Computejerk', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        # Map internal flags to stored values
+        self.sliding_window_max_length = int(self.stored['Slidingwindowmaxlength'])
+        self.compute_sparc = bool(self.stored['Computesparc'])
+        self.compute_jerk = bool(self.stored['Computejerk'])
 
         initial_metrics = []
         if self.compute_sparc:
@@ -67,12 +60,12 @@ class SmoothnessExt:
 
         self.smoothness = Smoothness(metrics=initial_metrics)
 
-        # Map optional new parameters if they exist in the Custom Parameters
-        self.smoothness.rate_hz = _safe_eval('Ratehz', 60.0, float)
-        self.smoothness.use_filter = _safe_eval('Usefilter', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.smoothness.sparc_threshold = _safe_eval('Sparcamplitudethreshold', 0.05, float)
-        self.smoothness.sparc_min_fc = _safe_eval('Sparcminfc', 2.0, float)
-        self.smoothness.sparc_max_fc = _safe_eval('Sparcmaxfc', 20.0, float)
+        # Map initialization parameters from storage
+        self.smoothness.rate_hz = float(self.stored['Ratehz'])
+        self.smoothness.use_filter = bool(self.stored['Usefilter'])
+        self.smoothness.sparc_threshold = float(self.stored['Sparcamplitudethreshold'])
+        self.smoothness.sparc_min_fc = float(self.stored['Sparcminfc'])
+        self.smoothness.sparc_max_fc = float(self.stored['Sparcmaxfc'])
 
         self.sliding_window = SlidingWindow(max_length=self.sliding_window_max_length, n_signals=1)
 
@@ -142,11 +135,19 @@ class SmoothnessExt:
         p.min = 2.0
         p.normMax = 40.0
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         def set_sparc(v):
             self.compute_sparc = bool(v)
@@ -160,7 +161,6 @@ class SmoothnessExt:
         param_handlers = {
             "Slidingwindowmaxlength": lambda v: (
                 setattr(self, 'sliding_window_max_length', int(float(v))),
-                setattr(self, 'smoothness_max_window', int(float(v))),
                 setattr(self.sliding_window, 'max_length', int(float(v)))
             ),
             "Computesparc": set_sparc,

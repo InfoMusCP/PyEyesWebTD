@@ -26,31 +26,26 @@ class MSEDominanceExt:
         # The component to which this extension is attached
         self.ownerComp = ownerComp
 
-        # Helper to safely evaluate parameter values during component init
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Computecomplexityindex', 'default': True, 'target': ownerComp.par.Computecomplexityindex if hasattr(ownerComp.par, 'Computecomplexityindex') else None},
+            {'name': 'Computedominancescore', 'default': False, 'target': ownerComp.par.Computedominancescore if hasattr(ownerComp.par, 'Computedominancescore') else None},
+            {'name': 'Computeleaderidentification', 'default': False, 'target': ownerComp.par.Computeleaderidentification if hasattr(ownerComp.par, 'Computeleaderidentification') else None},
+            {'name': 'Slidingwindowmaxlength', 'default': 500, 'target': ownerComp.par.Slidingwindowmaxlength if hasattr(ownerComp.par, 'Slidingwindowmaxlength') else None},
+            {'name': 'M', 'default': 2, 'target': ownerComp.par.M if hasattr(ownerComp.par, 'M') else None},
+            {'name': 'R', 'default': 0.15, 'target': ownerComp.par.R if hasattr(ownerComp.par, 'R') else None},
+            {'name': 'Maxscale', 'default': 6, 'target': ownerComp.par.Maxscale if hasattr(ownerComp.par, 'Maxscale') else None},
+            {'name': 'Minpoints', 'default': 500, 'target': ownerComp.par.Minpoints if hasattr(ownerComp.par, 'Minpoints') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        # Sliding window
-        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 500, int)
-
-        # Get metrics based on toggles
-        self.compute_complexity_index = _safe_eval('Computecomplexityindex', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_dominance_score = _safe_eval('Computedominancescore', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        self.compute_leader_identification = _safe_eval('Computeleaderidentification', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
+        # Map internal flags to stored values
+        self.sliding_window_max_length = int(self.stored['Slidingwindowmaxlength'])
+        self.compute_complexity_index = bool(self.stored['Computecomplexityindex'])
+        self.compute_dominance_score = bool(self.stored['Computedominancescore'])
+        self.compute_leader_identification = bool(self.stored['Computeleaderidentification'])
 
         initial_metrics = []
         if self.compute_complexity_index:
@@ -65,10 +60,10 @@ class MSEDominanceExt:
             initial_metrics = ["complexity_index"]
 
         # Map initialization parameters
-        m = _safe_eval('M', 2, int)
-        r = _safe_eval('R', 0.15, float)
-        max_scale = _safe_eval('Maxscale', 6, int)
-        min_points = _safe_eval('Minpoints', 500, int)
+        m = int(self.stored['M'])
+        r = float(self.stored['R'])
+        max_scale = int(self.stored['Maxscale'])
+        min_points = int(self.stored['Minpoints'])
 
         self.feature = MultiScaleEntropyDominance(
             m=m, r=r, max_scale=max_scale, min_points=min_points, methods=initial_metrics
@@ -141,11 +136,19 @@ class MSEDominanceExt:
         p.min = 100
         p.normMax = 2000
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         def set_complexity(v):
             self.compute_complexity_index = bool(v)

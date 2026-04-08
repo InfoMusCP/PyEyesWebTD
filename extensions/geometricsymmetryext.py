@@ -25,28 +25,22 @@ class GeometricSymmetryExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
-
-        # Map initialization parameters
-        # We read from the sequence parameter 'Jointpairs'
-        self.pairs_enabled = []
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Usecenter', 'default': True, 'target': ownerComp.par.Usecenter if hasattr(ownerComp.par, 'Usecenter') else None},
+            {'name': 'Centeridx', 'default': 0, 'target': ownerComp.par.Centeridx if hasattr(ownerComp.par, 'Centeridx') else None},
+            {'name': 'Jointpairs', 'default': 1, 'target': ownerComp.par.Jointpairs if hasattr(ownerComp.par, 'Jointpairs') else None},
+        ]
         
-        # Safely try to access the sequence
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
+
+        # Map internal flags to stored values
+        self.use_center = bool(self.stored['Usecenter'])
+        self.center_idx = int(self.stored['Centeridx'])
+        
+        # Build pairs list from current parameters
+        self.pairs_enabled = []
         seq_par = getattr(self.ownerComp.seq, 'Jointpairs', None)
         if seq_par is not None:
             for block in seq_par.blocks:
@@ -60,12 +54,9 @@ class GeometricSymmetryExt:
                     except (ValueError, TypeError):
                         continue
         
-        # Fallback to a single pair [0, 1] if none are configured
+        # Fallback if none are configured
         if not self.pairs_enabled:
             self.pairs_enabled = [(0, 1)]
-
-        self.center_idx = _safe_eval('Centeridx', 0, int)
-        self.use_center = _safe_eval('Usecenter', True, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
 
         center_param = self.center_idx if self.use_center else None
 
@@ -137,11 +128,19 @@ class GeometricSymmetryExt:
         # Initialize with at least 1 pair block for UI convenience
         self.ownerComp.par.Jointpairs = 1
 
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         def set_use_center(v):
             self.use_center = bool(v)

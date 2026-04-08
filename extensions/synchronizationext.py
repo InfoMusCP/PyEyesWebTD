@@ -25,34 +25,24 @@ class SynchronizationExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        def _safe_eval(par_name, default_val, expected_type):
-            par = getattr(self.ownerComp.par, par_name, None)
-            if par is not None:
-                val = par.eval()
-                if val == '' or val is None:
-                    par.val = default_val
-                    return default_val
-                try:
-                    result = expected_type(val)
-                    if result == 0 and default_val != 0:
-                        par.val = default_val
-                        return default_val
-                    return result
-                except (ValueError, TypeError):
-                    pass
-            return default_val
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Applyfilter', 'default': False, 'target': ownerComp.par.Applyfilter if hasattr(ownerComp.par, 'Applyfilter') else None},
+            {'name': 'Lowcut', 'default': 0.5, 'target': ownerComp.par.Lowcut if hasattr(ownerComp.par, 'Lowcut') else None},
+            {'name': 'Highcut', 'default': 5.0, 'target': ownerComp.par.Highcut if hasattr(ownerComp.par, 'Highcut') else None},
+            {'name': 'Fs', 'default': 60.0, 'target': ownerComp.par.Fs if hasattr(ownerComp.par, 'Fs') else None},
+            {'name': 'Slidingwindowmaxlength', 'default': 60, 'target': ownerComp.par.Slidingwindowmaxlength if hasattr(ownerComp.par, 'Slidingwindowmaxlength') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
 
-        self.sliding_window_max_length = _safe_eval('Slidingwindowmaxlength', 60, int)
-        
-        # Synchronization handles filter parameter objects natively inside its setter 
-        # but to keep TD UI flat, we expose low and high cutoffs for a butterworth if needed, 
-        # or keep it simple with none.
-        self.apply_filter = _safe_eval('Applyfilter', False, lambda v: bool(int(v)) if str(v).isdigit() else bool(v))
-        
-        # Filter details
-        self.lowcut = _safe_eval('Lowcut', 0.5, float)
-        self.highcut = _safe_eval('Highcut', 5.0, float)
-        self.fs = _safe_eval('Fs', 60.0, float)
+        # Map internal flags to stored values
+        self.sliding_window_max_length = int(self.stored['Slidingwindowmaxlength'])
+        self.apply_filter = bool(self.stored['Applyfilter'])
+        self.lowcut = float(self.stored['Lowcut'])
+        self.highcut = float(self.stored['Highcut'])
+        self.fs = float(self.stored['Fs'])
 
         filter_params = None
         if self.apply_filter:
@@ -106,11 +96,19 @@ class SynchronizationExt:
         p.min = 1.0
         p.normMax = 120.0
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         def set_apply_filter(v):
             self.apply_filter = bool(v)

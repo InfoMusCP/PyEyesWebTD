@@ -25,12 +25,15 @@ class KineticEnergyExt:
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
 
-        par_weights = getattr(self.ownerComp.par, 'Weights', None)
-        if par_weights is not None:
-            weights_val = self._parse_weights_str(par_weights.eval())
-        else:
-            weights_val = 1.0
-            
+        # Define storage for persistence
+        storedItems = [
+            {'name': 'Weights', 'default': '1.0', 'target': ownerComp.par.Weights if hasattr(ownerComp.par, 'Weights') else None},
+        ]
+        
+        # Initialize StorageManager
+        self.stored = StorageManager(self, ownerComp, storedItems)
+
+        weights_val = self._parse_weights_str(self.stored['Weights'])
         self.feature = KineticEnergy(weights=weights_val)
 
     @staticmethod
@@ -61,11 +64,19 @@ class KineticEnergyExt:
         p.default = "1.0"
         p.val = "1.0"
         
+        # Refresh parameters from storage after they are rebuilt
+        for item in self.stored.items():
+            if hasattr(self.ownerComp.par, item.name):
+                setattr(self.ownerComp.par, item.name, item.val)
+        
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 
     def par_exec_onValueChange(self, par):
         param_name = par.name
         param_value = par.eval()
+
+        if param_name in self.stored:
+            self.stored[param_name] = param_value
 
         param_handlers = {
             "Weights": lambda v: setattr(self.feature, 'weights', self._parse_weights_str(v))

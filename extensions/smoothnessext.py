@@ -136,9 +136,9 @@ class SmoothnessExt:
         p.normMax = 40.0
         
         # Refresh parameters from storage after they are rebuilt
-        for item in self.stored.items():
-            if hasattr(self.ownerComp.par, item.name):
-                setattr(self.ownerComp.par, item.name, item.val)
+        for name, val in self.stored.items():
+            if hasattr(self.ownerComp.par, name):
+                setattr(self.ownerComp.par, name, val)
         
         print(f"[{self.ownerComp.name}] Custom Parameters Rebuilt Successfully.")
 

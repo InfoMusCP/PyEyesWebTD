@@ -3,6 +3,7 @@ name: Auto tag and release selected files
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write

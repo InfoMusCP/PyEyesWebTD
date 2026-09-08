@@ -32,16 +32,24 @@ jobs:
           mkdir -p release
           cp -r extensions data release/
           cp *.tox release/
-          cp setup.sh setup.bat Examples.toe release/
+          cp Examples.toe release/
           cd release
           zip -r ../PyEyesWebTD_${{ steps.get_version.outputs.VERSION }}.zip .
 
-      - name: Create GitHub release
+      - name: Update tag to current commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f ${{ steps.get_version.outputs.VERSION }}
+          git push -f origin ${{ steps.get_version.outputs.VERSION }}
+
+      - name: Create or Update GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           name: Release ${{ steps.get_version.outputs.VERSION }}
           files: PyEyesWebTD_${{ steps.get_version.outputs.VERSION }}.zip
+          make_latest: true
           draft: false
           prerelease: false
         env:

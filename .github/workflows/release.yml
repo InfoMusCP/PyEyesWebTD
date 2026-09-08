@@ -32,7 +32,7 @@ jobs:
           mkdir -p release
           cp -r extensions data release/
           cp *.tox release/
-          cp setup.sh setup.bat Examples.toe release/
+          cp Examples.toe release/
           cd release
           zip -r ../PyEyesWebTD_${{ steps.get_version.outputs.VERSION }}.zip .
 

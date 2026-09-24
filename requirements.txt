@@ -1,1 +1,1 @@
-pyeyesweb
+pyeyesweb>=1.1.1
